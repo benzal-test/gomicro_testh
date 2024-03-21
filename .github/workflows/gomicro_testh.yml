@@ -1,0 +1,83 @@
+name: Test_Migration8270811/gomicro_testh
+on:
+  push:
+  workflow_dispatch:
+concurrency:
+  group: "${{ github.ref }}"
+  cancel-in-progress: true
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    container:
+      image: golang:latest
+    if: ${{ github.event_name }} == "merge_request_event" || !(${{ github.ref }} && $CI_OPEN_MERGE_REQUESTS && ${{ github.event_name }} == "push") || ${{ github.ref }}
+    timeout-minutes: 60
+    steps:
+    - uses: actions/checkout@v4.1.0
+      with:
+        fetch-depth: 20
+        lfs: true
+    - run: go mod tidy
+    - run: go mod download
+    - run: go fmt $(go list ./...)
+    - run: go vet $(go list ./...)
+  test:
+    runs-on: ubuntu-latest
+    container:
+      image: golang:latest
+    if: ${{ github.event_name }} == "merge_request_event" || !(${{ github.ref }} && $CI_OPEN_MERGE_REQUESTS && ${{ github.event_name }} == "push") || ${{ github.ref }}
+    timeout-minutes: 60
+    steps:
+    - uses: actions/checkout@v4.1.0
+      with:
+        fetch-depth: 20
+        lfs: true
+    - run: go mod tidy
+    - run: go mod download
+    - run: go test -race $(go list ./...)
+  compile:
+    needs:
+    - format
+    - test
+    runs-on: ubuntu-latest
+    container:
+      image: golang:latest
+    if: ${{ github.event_name }} == "merge_request_event" || !(${{ github.ref }} && $CI_OPEN_MERGE_REQUESTS && ${{ github.event_name }} == "push") || ${{ github.ref }}
+    timeout-minutes: 60
+    steps:
+    - uses: actions/checkout@v4.1.0
+      with:
+        fetch-depth: 20
+        lfs: true
+    - run: go mod tidy
+    - run: go mod download
+    - run: apt update
+    - run: apt install unzip
+    - run: go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+    - run: go install github.com/go-micro/generator/cmd/protoc-gen-micro@latest
+    - run: curl -L "https://github.com/protocolbuffers/protobuf/releases/download/v21.9/protoc-21.9-linux-x86_64.zip" --output protoc-21.9-linux-x86_64.zip
+    - run: unzip protoc-21.9-linux-x86_64.zip -d protoc/
+    - run: "./protoc/bin/protoc --go_opt=paths=source_relative --micro_opt=paths=source_relative --proto_path=./proto/ --micro_out=./proto/ --go_out=./proto/ ./proto/greeter.proto"
+    - run: go build -race -ldflags "-extldflags '-static'" -o ${{ github.workspace }}/service
+    - uses: actions/upload-artifact@v4.1.0
+      if: success()
+      with:
+        name: "${{ github.job }}"
+        path: service
+  deploy:
+    needs: compile
+    runs-on: ubuntu-latest
+    container:
+      image: golang:latest
+    if: ${{ github.event_name }} == "merge_request_event" || !(${{ github.ref }} && $CI_OPEN_MERGE_REQUESTS && ${{ github.event_name }} == "push") || ${{ github.ref }} || ${{ github.ref }} == $CI_DEFAULT_BRANCH && ${{ github.event_name }} == "push"
+    environment: production
+    timeout-minutes: 60
+    steps:
+    - uses: actions/checkout@v4.1.0
+      with:
+        fetch-depth: 20
+        lfs: true
+    - uses: actions/download-artifact@v4.1.0
+    - run: go mod tidy
+    - run: go mod download
+    - run: echo "Define your deployment script!"
