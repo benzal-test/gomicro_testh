@@ -13,7 +13,7 @@ jobs:
     if: ${{ github.event_name }} == "merge_request_event" || !(${{ github.ref }} && $CI_OPEN_MERGE_REQUESTS && ${{ github.event_name }} == "push") || ${{ github.ref }}
     timeout-minutes: 60
     steps:
-    - uses: actions/checkout@v4.1.0
+    - uses: actions/checkout@v2
       with:
         fetch-depth: 20
         lfs: true
@@ -28,7 +28,7 @@ jobs:
     if: ${{ github.event_name }} == "merge_request_event" || !(${{ github.ref }} && $CI_OPEN_MERGE_REQUESTS && ${{ github.event_name }} == "push") || ${{ github.ref }}
     timeout-minutes: 60
     steps:
-    - uses: actions/checkout@v4.1.0
+    - uses: actions/checkout@v2
       with:
         fetch-depth: 20
         lfs: true
